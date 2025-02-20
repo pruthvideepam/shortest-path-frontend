@@ -6,7 +6,8 @@ import "leaflet/dist/leaflet.css";
 const App = () => {
   const [startCity, setStartCity] = useState("");
   const [endCity, setEndCity] = useState("");
-  const [route, setRoute] = useState([]);
+  const [routes, setRoutes] = useState([]); // Store multiple routes
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0); // Selected route index
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
 
@@ -64,54 +65,36 @@ const App = () => {
 
       console.log("GeoJSON Features:", geoJson.features);
 
-      const coordinates = geoJson.features.flatMap((feature) => {
-  if (!feature.geometry || !feature.geometry.coordinates) {
-    console.error("Invalid feature:", feature);
-    return [];
-  }
+      const extractedRoutes = geoJson.features.map((feature) => {
+        if (!feature.geometry || !feature.geometry.coordinates) {
+          console.error("Invalid feature:", feature);
+          return [];
+        }
 
-  switch (feature.geometry.type) {
-    case "MultiLineString":
-      return feature.geometry.coordinates.flatMap((line) =>
-        line.map(([lon, lat]) => ({ lat, lon }))
-      );
+        if (feature.geometry.type === "LineString") {
+          return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
+        } else if (feature.geometry.type === "MultiLineString") {
+          return feature.geometry.coordinates.flat().map(([lon, lat]) => ({ lat, lon }));
+        }
 
-    case "LineString":
-      return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
+        return [];
+      });
 
-    case "Point":  // Fix: Handle Point geometry properly
-      console.warn("Skipping unsupported Point geometry:", feature.geometry.coordinates);
-      return []; // Skipping Points to avoid errors
+      console.log("Extracted Routes:", extractedRoutes);
 
-    default:
-      console.error("Unsupported geometry type:", feature.geometry.type);
-      return [];
-  }
-});
-
-
-
-      console.log("Extracted Coordinates:", coordinates);
-
-      if (coordinates.length === 0) {
-        console.error("No valid coordinates extracted.");
+      if (extractedRoutes.length === 0) {
         alert("Could not retrieve a valid route. Try again!");
         setLoading(false);
         return;
       }
 
-      setRoute(coordinates);
+      setRoutes(extractedRoutes);
+      setSelectedRouteIndex(0); // Reset to the first route
     } catch (error) {
       console.error("Error fetching route:", error);
       alert("Failed to fetch route. Try again later!");
     }
     setLoading(false);
-  };
-
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      fetchRoute();
-    }
   };
 
   return (
@@ -130,6 +113,7 @@ const App = () => {
           zIndex: 1000,
           display: "flex",
           gap: "10px",
+          alignItems: "center",
         }}
       >
         <input
@@ -137,7 +121,6 @@ const App = () => {
           placeholder="Start City"
           value={startCity}
           onChange={(e) => setStartCity(e.target.value)}
-          onKeyPress={handleKeyPress}
           style={{ padding: "5px" }}
         />
         <input
@@ -145,7 +128,6 @@ const App = () => {
           placeholder="Destination City"
           value={endCity}
           onChange={(e) => setEndCity(e.target.value)}
-          onKeyPress={handleKeyPress}
           style={{ padding: "5px" }}
         />
         <button onClick={fetchRoute} disabled={loading}>
@@ -154,12 +136,24 @@ const App = () => {
         <button onClick={() => setDarkMode(!darkMode)}>
           {darkMode ? "Light Mode" : "Dark Mode"}
         </button>
+
+        {/* Dropdown to select route */}
+        {routes.length > 1 && (
+          <select
+            value={selectedRouteIndex}
+            onChange={(e) => setSelectedRouteIndex(Number(e.target.value))}
+            style={{ padding: "5px" }}
+          >
+            {routes.map((_, index) => (
+              <option key={index} value={index}>
+                Route {index + 1}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
-      <MapContainer
-        center={[12.9716, 77.5946]}
-        zoom={7}
-        style={{ width: "100%", height: "100%" }}
-      >
+
+      <MapContainer center={[12.9716, 77.5946]} zoom={7} style={{ width: "100%", height: "100%" }}>
         <TileLayer
           url={
             darkMode
@@ -167,13 +161,37 @@ const App = () => {
               : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           }
         />
-        {route.length > 0 && (
+
+        {/* Render all routes in different colors */}
+        {routes.map((route, index) => (
+          <Polyline
+            key={index}
+            positions={route.map((point) => [point.lat, point.lon])}
+            color={index === selectedRouteIndex ? "blue" : "gray"} // Highlight selected route
+            weight={index === selectedRouteIndex ? 5 : 2} // Make selected route thicker
+            opacity={index === selectedRouteIndex ? 1 : 0.5} // Reduce opacity for unselected routes
+          />
+        ))}
+
+        {/* Start and End Markers */}
+        {routes.length > 0 && (
           <>
-            {route[0] && <Marker position={[route[0].lat, route[0].lon]} />}
-            {route[route.length - 1] && (
-              <Marker position={[route[route.length - 1].lat, route[route.length - 1].lon]} />
+            {routes[selectedRouteIndex][0] && (
+              <Marker
+                position={[
+                  routes[selectedRouteIndex][0].lat,
+                  routes[selectedRouteIndex][0].lon,
+                ]}
+              />
             )}
-            <Polyline positions={route.map((point) => [point.lat, point.lon])} color="blue" />
+            {routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1] && (
+              <Marker
+                position={[
+                  routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1].lat,
+                  routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1].lon,
+                ]}
+              />
+            )}
           </>
         )}
       </MapContainer>
