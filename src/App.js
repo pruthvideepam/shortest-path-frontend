@@ -165,15 +165,15 @@ const App = () => {
         />
 
         {/* Render all routes with appropriate colors */}
-        {routes.map((route, index) => (
-          <Polyline
-            key={index}
-            positions={route.map((point) => [point.lat, point.lon])}
-            color={index === bestRouteIndex ? "blue" : "orange"} // Best route in blue, others in orange
-            weight={index === selectedRouteIndex ? 5 : 3} // Highlight selected route
-            opacity={index === selectedRouteIndex ? 1 : 0.5}
-          />
-        ))}
+        {/* Render only the selected route */}
+{routes.length > 0 && (
+  <Polyline
+    positions={routes[selectedRouteIndex].map((point) => [point.lat, point.lon])}
+    color={selectedRouteIndex === bestRouteIndex ? "blue" : "orange"} // Best route in blue, others in orange
+    weight={5} // Thicker line for better visibility
+    opacity={1} // Make it fully visible
+  />
+)}
 
         {/* Start and End Markers */}
         {/* Start and End Markers */}
