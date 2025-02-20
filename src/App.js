@@ -176,12 +176,15 @@ const App = () => {
         ))}
 
         {/* Start and End Markers */}
-        {routes.length > 0 && (
-          <>
-            <Marker position={[routes[selectedRouteIndex][0].lat, routes[selectedRouteIndex][0].lon]} />
-            <Marker position={[routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1].lat, routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1].lon]} />
-          </>
-        )}
+        {/* Start and End Markers */}
+{routes.length > 0 && routes[selectedRouteIndex]?.length > 0 && (
+  <>
+    <Marker position={[routes[selectedRouteIndex][0]?.lat, routes[selectedRouteIndex][0]?.lon]} />
+    <Marker position={[routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1]?.lat, 
+                       routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1]?.lon]} />
+  </>
+)}
+
       </MapContainer>
     </div>
   );
