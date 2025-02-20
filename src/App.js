@@ -79,9 +79,9 @@ const App = () => {
     case "LineString":
       return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
 
-    case "Point":  // NEW: Handle single point geometries
-      const [lon, lat] = feature.geometry.coordinates;
-      return [{ lat, lon }];
+    case "Point":  // Fix: Handle Point geometry properly
+      console.warn("Skipping unsupported Point geometry:", feature.geometry.coordinates);
+      return []; // Skipping Points to avoid errors
 
     default:
       console.error("Unsupported geometry type:", feature.geometry.type);
