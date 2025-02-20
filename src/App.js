@@ -65,24 +65,29 @@ const App = () => {
       console.log("GeoJSON Features:", geoJson.features);
 
       const coordinates = geoJson.features.flatMap((feature) => {
-        if (!feature.geometry || !feature.geometry.coordinates) {
-          console.error("Invalid feature:", feature);
-          return [];
-        }
+  if (!feature.geometry || !feature.geometry.coordinates) {
+    console.error("Invalid feature:", feature);
+    return [];
+  }
 
-        return feature.geometry.coordinates
-          .map((coord) => {
-            if (!Array.isArray(coord) || coord.length < 2) {
-              console.error("Invalid coordinate:", coord);
-              return null;
-            }
-            return {
-              lat: parseFloat(coord[1]), // Correcting order: [lat, lon]
-              lon: parseFloat(coord[0]),
-            };
-          })
-          .filter(Boolean); // Removing null values
-      });
+  if (feature.geometry.type === "MultiLineString") {
+    return feature.geometry.coordinates.flatMap((line) =>
+      line.map((coord) => ({
+        lat: coord[1], // Leaflet uses [lat, lon]
+        lon: coord[0], // GeoJSON uses [lon, lat]
+      }))
+    );
+  } else if (feature.geometry.type === "LineString") {
+    return feature.geometry.coordinates.map((coord) => ({
+      lat: coord[1],
+      lon: coord[0],
+    }));
+  } else {
+    console.error("Unsupported geometry type:", feature.geometry.type);
+    return [];
+  }
+});
+
 
       console.log("Extracted Coordinates:", coordinates);
 
