@@ -141,18 +141,18 @@ const App = () => {
 
         {/* Dropdown to select route */}
         {routes.length > 1 && (
-          <select
-            value={selectedRouteIndex}
-            onChange={(e) => setSelectedRouteIndex(Number(e.target.value))}
-            style={{ padding: "5px" }}
-          >
-            {routes.map((_, index) => (
-              <option key={index} value={index}>
-                {index === bestRouteIndex ? "Best Route" : `Route ${index + 1}`}
-              </option>
-            ))}
-          </select>
-        )}
+  <select
+    value={selectedRouteIndex}
+    onChange={(e) => setSelectedRouteIndex(Number(e.target.value))}
+    style={{ padding: "5px" }}
+  >
+    {routes.map((_, index) => (
+      <option key={index} value={index}>
+        {index === bestRouteIndex ? "Best Route (Blue)" : `Route ${index + 1} (Red)`}
+      </option>
+    ))}
+  </select>
+)}
       </div>
 
       <MapContainer center={[12.9716, 77.5946]} zoom={7} style={{ width: "100%", height: "100%" }}>
@@ -169,12 +169,11 @@ const App = () => {
 {routes.length > 0 && (
   <Polyline
     positions={routes[selectedRouteIndex].map((point) => [point.lat, point.lon])}
-    color={selectedRouteIndex === bestRouteIndex ? "blue" : "orange"} // Best route in blue, others in orange
-    weight={5} // Thicker line for better visibility
-    opacity={1} // Make it fully visible
+    color={selectedRouteIndex === bestRouteIndex ? "blue" : "red"} // Best route in blue, others in red
+    weight={5} // Thicker line for visibility
+    opacity={1} // Fully visible
   />
 )}
-
         {/* Start and End Markers */}
         {/* Start and End Markers */}
 {routes.length > 0 && routes[selectedRouteIndex]?.length > 0 && (
