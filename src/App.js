@@ -6,8 +6,9 @@ import "leaflet/dist/leaflet.css";
 const App = () => {
   const [startCity, setStartCity] = useState("");
   const [endCity, setEndCity] = useState("");
-  const [routes, setRoutes] = useState([]);
-  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
+  const [routes, setRoutes] = useState([]); // Store multiple routes
+  const [bestRouteIndex, setBestRouteIndex] = useState(0); // Index of the best route
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0); // Selected route index
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
 
@@ -89,11 +90,8 @@ const App = () => {
       }
 
       setRoutes(extractedRoutes);
-
-      // Automatically select the best route (shortest one)
-      const bestRouteIndex = extractedRoutes.reduce((bestIndex, route, index, arr) => 
-        route.length < arr[bestIndex].length ? index : bestIndex, 0);
-      setSelectedRouteIndex(bestRouteIndex);
+      setBestRouteIndex(0); // Assume first route is best for now
+      setSelectedRouteIndex(0);
     } catch (error) {
       console.error("Error fetching route:", error);
       alert("Failed to fetch route. Try again later!");
@@ -141,17 +139,16 @@ const App = () => {
           {darkMode ? "Light Mode" : "Dark Mode"}
         </button>
 
+        {/* Dropdown to select route */}
         {routes.length > 1 && (
           <select
             value={selectedRouteIndex}
             onChange={(e) => setSelectedRouteIndex(Number(e.target.value))}
             style={{ padding: "5px" }}
           >
-            {routes.map((route, index) => (
+            {routes.map((_, index) => (
               <option key={index} value={index}>
-                {index === routes.reduce((bestIndex, route, i, arr) => 
-                  route.length < arr[bestIndex].length ? i : bestIndex, 0)
-                  ? "Best Route" : `Route ${index + 1}`}
+                {index === bestRouteIndex ? "Best Route" : `Route ${index + 1}`}
               </option>
             ))}
           </select>
@@ -167,31 +164,24 @@ const App = () => {
           }
         />
 
+        {/* Render all routes with appropriate colors */}
         {routes.map((route, index) => (
           <Polyline
             key={index}
             positions={route.map((point) => [point.lat, point.lon])}
-            color={index === selectedRouteIndex ? "blue" : "gray"}
-            weight={index === selectedRouteIndex ? 5 : 2}
+            color={index === bestRouteIndex ? "blue" : "orange"} // Best route in blue, others in orange
+            weight={index === selectedRouteIndex ? 5 : 3} // Highlight selected route
             opacity={index === selectedRouteIndex ? 1 : 0.5}
           />
         ))}
 
-        {routes.length > 0 && routes[selectedRouteIndex] && routes[selectedRouteIndex].length > 0 && (
-  <>
-    <Marker 
-      position={[routes[selectedRouteIndex][0]?.lat, routes[selectedRouteIndex][0]?.lon]} 
-    />
-    <Marker 
-      position={[
-        routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1]?.lat, 
-        routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1]?.lon
-      ]} 
-    />
-  </>
-)}
-
-
+        {/* Start and End Markers */}
+        {routes.length > 0 && (
+          <>
+            <Marker position={[routes[selectedRouteIndex][0].lat, routes[selectedRouteIndex][0].lon]} />
+            <Marker position={[routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1].lat, routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1].lon]} />
+          </>
+        )}
       </MapContainer>
     </div>
   );
