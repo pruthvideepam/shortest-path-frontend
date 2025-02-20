@@ -39,28 +39,41 @@ const App = () => {
         setLoading(false);
         return;
       }
-
+  
       const response = await axios.get(
         `https://shortest-path-backend-iyb8.onrender.com/api/route?lat1=${startCoords.lat}&lon1=${startCoords.lon}&lat2=${endCoords.lat}&lon2=${endCoords.lon}`
       );
       
+      // ✅ Debugging: Log API response to check format
       console.log("API Route Response:", response.data);
-
+      
       const geoJson = response.data;
-      const coordinates = geoJson.features.flatMap((feature) =>
-        feature.geometry.coordinates.map((coord) => ({
-          lat: coord[1],
-          lon: coord[0],
-        }))
-      );
-      
-      
+  
+      // ✅ Additional Debugging: Log feature data before processing
+      console.log("GeoJSON Features:", geoJson.features);
+  
+      const coordinates = geoJson.features.flatMap((feature) => {
+        // ✅ Check if feature.geometry and coordinates exist before processing
+        if (!feature.geometry || !feature.geometry.coordinates) {
+          console.error("Invalid feature:", feature);
+          return [];
+        }
+  
+        return feature.geometry.coordinates.map((coord) => ({
+          lat: coord[1],  // Leaflet requires [lat, lon]
+          lon: coord[0],  // GeoJSON format is [lon, lat]
+        }));
+      });
+  
+      // ✅ Log final extracted coordinates
+      console.log("Extracted Coordinates:", coordinates);
+  
       setRoute(coordinates);
     } catch (error) {
       console.error("Error fetching route:", error);
     }
     setLoading(false);
-  };
+  };  
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
