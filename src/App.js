@@ -66,25 +66,54 @@ const App = () => {
 
       console.log("GeoJSON Features:", geoJson.features);
 
-      const extractedRoutes = geoJson.features.map((feature) => {
-  if (!feature.geometry || !feature.geometry.coordinates) {
-    console.error("Invalid feature:", feature);
+      const extractedRoutes = geoJson.features
+  .map((feature) => {
+    if (!feature.geometry || !feature.geometry.coordinates) {
+      console.error("Invalid feature:", feature);
+      return [];
+    }
+
+    if (feature.geometry.type === "LineString") {
+      return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
+    } else if (feature.geometry.type === "MultiLineString") {
+      // Find the shortest route among multiple paths
+      const shortestPath = feature.geometry.coordinates.reduce((shortest, current) =>
+        getPathDistance(current) < getPathDistance(shortest) ? current : shortest
+      );
+
+      return shortestPath.map(([lon, lat]) => ({ lat, lon }));
+    }
+
     return [];
+  })
+  .filter((route) => route.length > 0); // Remove empty or invalid routes
+
+// Function to calculate path distance
+function getPathDistance(path) {
+  let totalDistance = 0;
+  for (let i = 1; i < path.length; i++) {
+    const [lon1, lat1] = path[i - 1];
+    const [lon2, lat2] = path[i];
+    totalDistance += haversineDistance(lat1, lon1, lat2, lon2);
   }
+  return totalDistance;
+}
 
-  if (feature.geometry.type === "LineString") {
-    return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
-  } else if (feature.geometry.type === "MultiLineString") {
-    // Select the longest path from MultiLineString (avoiding small diversions)
-    const longestPath = feature.geometry.coordinates.reduce((longest, current) =>
-      current.length > longest.length ? current : longest
-    , []);
+// Haversine formula to calculate distance between two points
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const R = 6371; // Radius of Earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) *
+      Math.cos(lat2 * (Math.PI / 180)) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+}
 
-    return longestPath.map(([lon, lat]) => ({ lat, lon }));
-  }
-
-  return [];
-});
 
       console.log("Extracted Routes:", extractedRoutes);
 
@@ -144,7 +173,7 @@ const App = () => {
           {darkMode ? "Light Mode" : "Dark Mode"}
         </button>
 
-        {/* Dropdown to select route */}
+        {/* Dropdown to switch between routes */}
 {routes.length > 1 && (
   <select
     value={selectedRouteIndex}
@@ -160,6 +189,7 @@ const App = () => {
 )}
 
 
+
       </div>
 
       <MapContainer center={[12.9716, 77.5946]} zoom={7} style={{ width: "100%", height: "100%" }}>
@@ -172,15 +202,16 @@ const App = () => {
         />
 
         {/* Render all routes with appropriate colors */}
-        {/* Render only the selected route */}
+        {/* Render the selected route */}
 {routes.length > 0 && selectedRouteIndex !== null && (
   <Polyline
     positions={routes[selectedRouteIndex].map((point) => [point.lat, point.lon])}
-    color={selectedRouteIndex === bestRouteIndex ? "blue" : "red"} // Best route is blue, others are red
+    color={selectedRouteIndex === bestRouteIndex ? "blue" : "red"} // Blue for best, red for others
     weight={5}
     opacity={1}
   />
 )}
+
 
         {/* Start and End Markers */}
         {/* Start and End Markers */}
