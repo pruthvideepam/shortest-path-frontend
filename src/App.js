@@ -70,37 +70,25 @@ const App = () => {
     return [];
   }
 
-  if (feature.geometry.type === "MultiLineString") {
-    return feature.geometry.coordinates.flatMap((line) =>
-      line.map((coord) => {
-        const lat = coord[1]; // Ensure correct ordering
-        const lon = coord[0];
+  switch (feature.geometry.type) {
+    case "MultiLineString":
+      return feature.geometry.coordinates.flatMap((line) =>
+        line.map(([lon, lat]) => ({ lat, lon }))
+      );
 
-        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-          console.error("Invalid coordinate:", coord);
-          return null; // Skip invalid points
-        }
+    case "LineString":
+      return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
 
-        return { lat, lon };
-      }).filter(Boolean) // Remove null values
-    );
-  } else if (feature.geometry.type === "LineString") {
-    return feature.geometry.coordinates.map((coord) => {
-      const lat = coord[1];
-      const lon = coord[0];
+    case "Point":  // NEW: Handle single point geometries
+      const [lon, lat] = feature.geometry.coordinates;
+      return [{ lat, lon }];
 
-      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-        console.error("Invalid coordinate:", coord);
-        return null;
-      }
-
-      return { lat, lon };
-    }).filter(Boolean);
-  } else {
-    console.error("Unsupported geometry type:", feature.geometry.type);
-    return [];
+    default:
+      console.error("Unsupported geometry type:", feature.geometry.type);
+      return [];
   }
 });
+
 
 
       console.log("Extracted Coordinates:", coordinates);
