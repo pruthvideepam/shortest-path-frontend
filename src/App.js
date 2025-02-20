@@ -140,7 +140,7 @@ const App = () => {
         </button>
 
         {/* Dropdown to select route */}
-        {routes.length > 1 && (
+{routes.length > 1 && (
   <select
     value={selectedRouteIndex}
     onChange={(e) => setSelectedRouteIndex(Number(e.target.value))}
@@ -153,6 +153,7 @@ const App = () => {
     ))}
   </select>
 )}
+
       </div>
 
       <MapContainer center={[12.9716, 77.5946]} zoom={7} style={{ width: "100%", height: "100%" }}>
@@ -166,12 +167,12 @@ const App = () => {
 
         {/* Render all routes with appropriate colors */}
         {/* Render only the selected route */}
-{routes.length > 0 && (
+{routes.length > 0 && selectedRouteIndex !== null && (
   <Polyline
     positions={routes[selectedRouteIndex].map((point) => [point.lat, point.lon])}
     color={selectedRouteIndex === bestRouteIndex ? "blue" : "red"} // Best route in blue, others in red
-    weight={5} // Thicker line for visibility
-    opacity={1} // Fully visible
+    weight={5}
+    opacity={1}
   />
 )}
         {/* Start and End Markers */}
