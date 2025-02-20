@@ -72,16 +72,30 @@ const App = () => {
 
   if (feature.geometry.type === "MultiLineString") {
     return feature.geometry.coordinates.flatMap((line) =>
-      line.map((coord) => ({
-        lat: coord[1], // Leaflet uses [lat, lon]
-        lon: coord[0], // GeoJSON uses [lon, lat]
-      }))
+      line.map((coord) => {
+        const lat = coord[1]; // Ensure correct ordering
+        const lon = coord[0];
+
+        if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+          console.error("Invalid coordinate:", coord);
+          return null; // Skip invalid points
+        }
+
+        return { lat, lon };
+      }).filter(Boolean) // Remove null values
     );
   } else if (feature.geometry.type === "LineString") {
-    return feature.geometry.coordinates.map((coord) => ({
-      lat: coord[1],
-      lon: coord[0],
-    }));
+    return feature.geometry.coordinates.map((coord) => {
+      const lat = coord[1];
+      const lon = coord[0];
+
+      if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+        console.error("Invalid coordinate:", coord);
+        return null;
+      }
+
+      return { lat, lon };
+    }).filter(Boolean);
   } else {
     console.error("Unsupported geometry type:", feature.geometry.type);
     return [];
