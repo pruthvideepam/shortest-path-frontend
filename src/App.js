@@ -16,10 +16,17 @@ const App = () => {
         `https://nominatim.openstreetmap.org/search?format=json&q=${city}`
       );
       if (response.data.length > 0) {
-        const cityResult = response.data.find((item) => item.type === "city") || response.data[0];
+        const cityResult =
+          response.data.find((item) => item.type === "city") || response.data[0];
+
+        if (!cityResult.lat || !cityResult.lon) {
+          console.error(`Invalid coordinates for ${city}:`, cityResult);
+          return null;
+        }
+
         return {
-          lat: parseFloat(response.data[0].lat),
-          lon: parseFloat(response.data[0].lon),
+          lat: parseFloat(cityResult.lat),
+          lon: parseFloat(cityResult.lon),
         };
       }
     } catch (error) {
@@ -33,47 +40,66 @@ const App = () => {
     try {
       const startCoords = await getCoordinates(startCity);
       const endCoords = await getCoordinates(endCity);
-      
+
       if (!startCoords || !endCoords) {
         alert("Invalid city names. Try again!");
         setLoading(false);
         return;
       }
-  
+
       const response = await axios.get(
         `https://shortest-path-backend-iyb8.onrender.com/api/route?lat1=${startCoords.lat}&lon1=${startCoords.lon}&lat2=${endCoords.lat}&lon2=${endCoords.lon}`
       );
-      
-      // ✅ Debugging: Log API response to check format
+
       console.log("API Route Response:", response.data);
-      
+
+      if (!response.data || !response.data.features || response.data.features.length === 0) {
+        console.error("Invalid or empty route data:", response.data);
+        alert("No valid route found. Try again!");
+        setLoading(false);
+        return;
+      }
+
       const geoJson = response.data;
-  
-      // ✅ Additional Debugging: Log feature data before processing
+
       console.log("GeoJSON Features:", geoJson.features);
-  
+
       const coordinates = geoJson.features.flatMap((feature) => {
-        // ✅ Check if feature.geometry and coordinates exist before processing
         if (!feature.geometry || !feature.geometry.coordinates) {
           console.error("Invalid feature:", feature);
           return [];
         }
-  
-        return feature.geometry.coordinates.map((coord) => ({
-          lat: coord[1],  // Leaflet requires [lat, lon]
-          lon: coord[0],  // GeoJSON format is [lon, lat]
-        }));
+
+        return feature.geometry.coordinates
+          .map((coord) => {
+            if (!Array.isArray(coord) || coord.length < 2) {
+              console.error("Invalid coordinate:", coord);
+              return null;
+            }
+            return {
+              lat: parseFloat(coord[1]), // Correcting order: [lat, lon]
+              lon: parseFloat(coord[0]),
+            };
+          })
+          .filter(Boolean); // Removing null values
       });
-  
-      // ✅ Log final extracted coordinates
+
       console.log("Extracted Coordinates:", coordinates);
-  
+
+      if (coordinates.length === 0) {
+        console.error("No valid coordinates extracted.");
+        alert("Could not retrieve a valid route. Try again!");
+        setLoading(false);
+        return;
+      }
+
       setRoute(coordinates);
     } catch (error) {
       console.error("Error fetching route:", error);
+      alert("Failed to fetch route. Try again later!");
     }
     setLoading(false);
-  };  
+  };
 
   const handleKeyPress = (e) => {
     if (e.key === "Enter") {
@@ -82,8 +108,23 @@ const App = () => {
   };
 
   return (
-    <div style={{ width: "100vw", height: "100vh", background: darkMode ? "#222" : "#fff", color: darkMode ? "#fff" : "#000" }}>
-      <div style={{ padding: "10px", position: "absolute", zIndex: 1000, display: "flex", gap: "10px" }}>
+    <div
+      style={{
+        width: "100vw",
+        height: "100vh",
+        background: darkMode ? "#222" : "#fff",
+        color: darkMode ? "#fff" : "#000",
+      }}
+    >
+      <div
+        style={{
+          padding: "10px",
+          position: "absolute",
+          zIndex: 1000,
+          display: "flex",
+          gap: "10px",
+        }}
+      >
         <input
           type="text"
           placeholder="Start City"
@@ -107,12 +148,24 @@ const App = () => {
           {darkMode ? "Light Mode" : "Dark Mode"}
         </button>
       </div>
-      <MapContainer center={[12.9716, 77.5946]} zoom={7} style={{ width: "100%", height: "100%" }}>
-        <TileLayer url={darkMode ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"} />
+      <MapContainer
+        center={[12.9716, 77.5946]}
+        zoom={7}
+        style={{ width: "100%", height: "100%" }}
+      >
+        <TileLayer
+          url={
+            darkMode
+              ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+              : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          }
+        />
         {route.length > 0 && (
           <>
-            <Marker position={[route[0].lat, route[0].lon]} />
-            <Marker position={[route[route.length - 1].lat, route[route.length - 1].lon]} />
+            {route[0] && <Marker position={[route[0].lat, route[0].lon]} />}
+            {route[route.length - 1] && (
+              <Marker position={[route[route.length - 1].lat, route[route.length - 1].lon]} />
+            )}
             <Polyline positions={route.map((point) => [point.lat, point.lon])} color="blue" />
           </>
         )}
