@@ -6,9 +6,9 @@ import "leaflet/dist/leaflet.css";
 const App = () => {
   const [startCity, setStartCity] = useState("");
   const [endCity, setEndCity] = useState("");
-  const [routes, setRoutes] = useState([]); // Store multiple routes
-  const [bestRouteIndex, setBestRouteIndex] = useState(0); // Index of the best route
-  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0); // Selected route index
+  const [routes, setRoutes] = useState([]);
+  const [bestRouteIndex, setBestRouteIndex] = useState(0);
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
 
@@ -20,16 +20,7 @@ const App = () => {
       if (response.data.length > 0) {
         const cityResult =
           response.data.find((item) => item.type === "city") || response.data[0];
-
-        if (!cityResult.lat || !cityResult.lon) {
-          console.error(`Invalid coordinates for ${city}:`, cityResult);
-          return null;
-        }
-
-        return {
-          lat: parseFloat(cityResult.lat),
-          lon: parseFloat(cityResult.lon),
-        };
+        return cityResult ? { lat: parseFloat(cityResult.lat), lon: parseFloat(cityResult.lon) } : null;
       }
     } catch (error) {
       console.error("Error fetching coordinates:", error);
@@ -42,7 +33,6 @@ const App = () => {
     try {
       const startCoords = await getCoordinates(startCity);
       const endCoords = await getCoordinates(endCity);
-
       if (!startCoords || !endCoords) {
         alert("Invalid city names. Try again!");
         setLoading(false);
@@ -53,78 +43,25 @@ const App = () => {
         `https://shortest-path-backend-iyb8.onrender.com/api/route?lat1=${startCoords.lat}&lon1=${startCoords.lon}&lat2=${endCoords.lat}&lon2=${endCoords.lon}`
       );
 
-      console.log("API Route Response:", response.data);
-
       if (!response.data || !response.data.features || response.data.features.length === 0) {
-        console.error("Invalid or empty route data:", response.data);
         alert("No valid route found. Try again!");
         setLoading(false);
         return;
       }
 
-      const geoJson = response.data;
-
-      console.log("GeoJSON Features:", geoJson.features);
-
-      const extractedRoutes = geoJson.features
-  .map((feature) => {
-    if (!feature.geometry || !feature.geometry.coordinates) {
-      console.error("Invalid feature:", feature);
-      return [];
-    }
-
-    if (feature.geometry.type === "LineString") {
-      return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
-    } else if (feature.geometry.type === "MultiLineString") {
-      // Find the shortest route among multiple paths
-      const shortestPath = feature.geometry.coordinates.reduce((shortest, current) =>
-        getPathDistance(current) < getPathDistance(shortest) ? current : shortest
-      );
-
-      return shortestPath.map(([lon, lat]) => ({ lat, lon }));
-    }
-
-    return [];
-  })
-  .filter((route) => route.length > 0); // Remove empty or invalid routes
-
-// Function to calculate path distance
-function getPathDistance(path) {
-  let totalDistance = 0;
-  for (let i = 1; i < path.length; i++) {
-    const [lon1, lat1] = path[i - 1];
-    const [lon2, lat2] = path[i];
-    totalDistance += haversineDistance(lat1, lon1, lat2, lon2);
-  }
-  return totalDistance;
-}
-
-// Haversine formula to calculate distance between two points
-function haversineDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371; // Radius of Earth in km
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) *
-      Math.cos(lat2 * (Math.PI / 180)) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c; // Distance in km
-}
-
-
-      console.log("Extracted Routes:", extractedRoutes);
-
-      if (extractedRoutes.length === 0) {
-        alert("Could not retrieve a valid route. Try again!");
-        setLoading(false);
-        return;
-      }
+      const extractedRoutes = response.data.features
+        .map((feature) => {
+          if (feature.geometry.type === "LineString") {
+            return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
+          } else if (feature.geometry.type === "MultiLineString") {
+            return feature.geometry.coordinates[0].map(([lon, lat]) => ({ lat, lon }));
+          }
+          return [];
+        })
+        .filter((route) => route.length > 0);
 
       setRoutes(extractedRoutes);
-      setBestRouteIndex(0); // Assume first route is best for now
+      setBestRouteIndex(0);
       setSelectedRouteIndex(0);
     } catch (error) {
       console.error("Error fetching route:", error);
@@ -134,95 +71,36 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   };
 
   return (
-    <div
-      style={{
-        width: "100vw",
-        height: "100vh",
-        background: darkMode ? "#222" : "#fff",
-        color: darkMode ? "#fff" : "#000",
-      }}
-    >
-      <div
-        style={{
-          padding: "10px",
-          position: "absolute",
-          zIndex: 1000,
-          display: "flex",
-          gap: "10px",
-          alignItems: "center",
-        }}
-      >
-        <input
-          type="text"
-          placeholder="Start City"
-          value={startCity}
-          onChange={(e) => setStartCity(e.target.value)}
-          style={{ padding: "5px" }}
-        />
-        <input
-          type="text"
-          placeholder="Destination City"
-          value={endCity}
-          onChange={(e) => setEndCity(e.target.value)}
-          style={{ padding: "5px" }}
-        />
-        <button onClick={fetchRoute} disabled={loading}>
-          {loading ? "Loading..." : "Get Route"}
-        </button>
-        <button onClick={() => setDarkMode(!darkMode)}>
-          {darkMode ? "Light Mode" : "Dark Mode"}
-        </button>
-
-        {/* Dropdown to switch between routes */}
-{routes.length > 1 && (
-  <select
-    value={selectedRouteIndex}
-    onChange={(e) => setSelectedRouteIndex(Number(e.target.value))}
-    style={{ padding: "5px" }}
-  >
-    {routes.map((_, index) => (
-      <option key={index} value={index}>
-        {index === bestRouteIndex ? "Best Route (Blue)" : `Route ${index + 1} (Red)`}
-      </option>
-    ))}
-  </select>
-)}
-
-
-
+    <div style={{ width: "100vw", height: "100vh", background: darkMode ? "#222" : "#fff", color: darkMode ? "#fff" : "#000" }}>
+      <div style={{ padding: "10px", position: "absolute", zIndex: 1000, display: "flex", gap: "10px", alignItems: "center" }}>
+        <input type="text" placeholder="Start City" value={startCity} onChange={(e) => setStartCity(e.target.value)} style={{ padding: "5px" }} />
+        <input type="text" placeholder="Destination City" value={endCity} onChange={(e) => setEndCity(e.target.value)} style={{ padding: "5px" }} />
+        <button onClick={fetchRoute} disabled={loading}>{loading ? "Loading..." : "Get Route"}</button>
+        <button onClick={() => setDarkMode(!darkMode)}>{darkMode ? "Light Mode" : "Dark Mode"}</button>
+        {routes.length > 1 && (
+          <select value={selectedRouteIndex} onChange={(e) => setSelectedRouteIndex(Number(e.target.value))} style={{ padding: "5px" }}>
+            {routes.map((_, index) => (
+              <option key={index} value={index}>{index === bestRouteIndex ? "Best Route (Blue)" : `Route ${index + 1} (Red)`}</option>
+            ))}
+          </select>
+        )}
       </div>
-
       <MapContainer center={[12.9716, 77.5946]} zoom={7} style={{ width: "100%", height: "100%" }}>
-        <TileLayer
-          url={
-            darkMode
-              ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          }
-        />
-
-        {/* Render all routes with appropriate colors */}
-        {/* Render the selected route */}
-{routes.length > 0 && selectedRouteIndex !== null && (
-  <Polyline
-    positions={routes[selectedRouteIndex].map((point) => [point.lat, point.lon])}
-    color={selectedRouteIndex === bestRouteIndex ? "blue" : "red"} // Blue for best, red for others
-    weight={5}
-    opacity={1}
-  />
-)}
-
-
-        {/* Start and End Markers */}
-        {/* Start and End Markers */}
-{routes.length > 0 && routes[selectedRouteIndex]?.length > 0 && (
-  <>
-    <Marker position={[routes[selectedRouteIndex][0]?.lat, routes[selectedRouteIndex][0]?.lon]} />
-    <Marker position={[routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1]?.lat, 
-                       routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1]?.lon]} />
-  </>
-)}
-
+        <TileLayer url={darkMode ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" : "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"} />
+        {routes.length > 0 && (
+          <Polyline
+            positions={routes[selectedRouteIndex].map((point) => [point.lat, point.lon])}
+            color={selectedRouteIndex === bestRouteIndex ? "blue" : "red"}
+            weight={5}
+            opacity={1}
+          />
+        )}
+        {routes.length > 0 && (
+          <>
+            <Marker position={[routes[selectedRouteIndex][0]?.lat, routes[selectedRouteIndex][0]?.lon]} />
+            <Marker position={[routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1]?.lat, routes[selectedRouteIndex][routes[selectedRouteIndex].length - 1]?.lon]} />
+          </>
+        )}
       </MapContainer>
     </div>
   );
