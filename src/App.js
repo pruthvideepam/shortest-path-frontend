@@ -67,19 +67,24 @@ const App = () => {
       console.log("GeoJSON Features:", geoJson.features);
 
       const extractedRoutes = geoJson.features.map((feature) => {
-        if (!feature.geometry || !feature.geometry.coordinates) {
-          console.error("Invalid feature:", feature);
-          return [];
-        }
+  if (!feature.geometry || !feature.geometry.coordinates) {
+    console.error("Invalid feature:", feature);
+    return [];
+  }
 
-        if (feature.geometry.type === "LineString") {
-          return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
-        } else if (feature.geometry.type === "MultiLineString") {
-          return feature.geometry.coordinates.flat().map(([lon, lat]) => ({ lat, lon }));
-        }
+  if (feature.geometry.type === "LineString") {
+    return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
+  } else if (feature.geometry.type === "MultiLineString") {
+    // Select the longest path from MultiLineString (avoiding small diversions)
+    const longestPath = feature.geometry.coordinates.reduce((longest, current) =>
+      current.length > longest.length ? current : longest
+    , []);
 
-        return [];
-      });
+    return longestPath.map(([lon, lat]) => ({ lat, lon }));
+  }
+
+  return [];
+});
 
       console.log("Extracted Routes:", extractedRoutes);
 
@@ -154,6 +159,7 @@ const App = () => {
   </select>
 )}
 
+
       </div>
 
       <MapContainer center={[12.9716, 77.5946]} zoom={7} style={{ width: "100%", height: "100%" }}>
@@ -170,11 +176,12 @@ const App = () => {
 {routes.length > 0 && selectedRouteIndex !== null && (
   <Polyline
     positions={routes[selectedRouteIndex].map((point) => [point.lat, point.lon])}
-    color={selectedRouteIndex === bestRouteIndex ? "blue" : "red"} // Best route in blue, others in red
+    color={selectedRouteIndex === bestRouteIndex ? "blue" : "red"} // Best route is blue, others are red
     weight={5}
     opacity={1}
   />
 )}
+
         {/* Start and End Markers */}
         {/* Start and End Markers */}
 {routes.length > 0 && routes[selectedRouteIndex]?.length > 0 && (
