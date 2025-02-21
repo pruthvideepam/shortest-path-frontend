@@ -3,17 +3,17 @@ import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
 import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
+import "./App.css";
 
+// Custom markers
 const startIcon = new L.Icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/green-dot.png",
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
+  iconSize: [40, 40],
 });
 
 const endIcon = new L.Icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
+  iconSize: [40, 40],
 });
 
 const App = () => {
@@ -31,12 +31,6 @@ const App = () => {
       if (response.data.length > 0) {
         const cityResult =
           response.data.find((item) => item.type === "city") || response.data[0];
-
-        if (!cityResult.lat || !cityResult.lon) {
-          console.error(`Invalid coordinates for ${city}:`, cityResult);
-          return null;
-        }
-
         return {
           lat: parseFloat(cityResult.lat),
           lon: parseFloat(cityResult.lon),
@@ -64,16 +58,9 @@ const App = () => {
         `https://shortest-path-backend-iyb8.onrender.com/api/route?lat1=${startCoords.lat}&lon1=${startCoords.lon}&lat2=${endCoords.lat}&lon2=${endCoords.lon}`
       );
 
-      if (!response.data || !response.data.features || response.data.features.length === 0) {
-        alert("No valid route found. Try again!");
-        setLoading(false);
-        return;
-      }
-
       const geoJson = response.data;
       const coordinates = geoJson.features.flatMap((feature) => {
         if (!feature.geometry || !feature.geometry.coordinates) return [];
-
         switch (feature.geometry.type) {
           case "MultiLineString":
             return feature.geometry.coordinates.flatMap((line) =>
@@ -86,39 +73,36 @@ const App = () => {
         }
       });
 
-      if (coordinates.length === 0) {
-        alert("Could not retrieve a valid route. Try again!");
-        setLoading(false);
-        return;
-      }
-
       setRoute(coordinates);
     } catch (error) {
+      console.error("Error fetching route:", error);
       alert("Failed to fetch route. Try again later!");
     }
     setLoading(false);
   };
 
   return (
-    <div className={`app-container ${darkMode ? "dark-mode" : "light-mode"}`}>
-      <div className="search-container">
+    <div className={`app-container ${darkMode ? "dark" : "light"}`}>
+      <div className="search-box">
         <input
           type="text"
-          placeholder="Enter Start Location"
+          placeholder="Start Location"
           value={startCity}
           onChange={(e) => setStartCity(e.target.value)}
         />
         <input
           type="text"
-          placeholder="Enter Destination"
+          placeholder="Destination"
           value={endCity}
           onChange={(e) => setEndCity(e.target.value)}
         />
-        <button onClick={fetchRoute} disabled={loading} className="route-btn">
-          {loading ? "Loading..." : "Find Route"}
+        <button onClick={fetchRoute} disabled={loading} className="search-btn">
+          {loading ? "Loading..." : "Get Route"}
+        </button>
+        <button onClick={() => setDarkMode(!darkMode)} className="mode-btn">
+          {darkMode ? "🌞 Light" : "🌙 Dark"}
         </button>
       </div>
-
       <MapContainer center={[12.9716, 77.5946]} zoom={7} className="map-container">
         <TileLayer
           url={
@@ -135,15 +119,6 @@ const App = () => {
           </>
         )}
       </MapContainer>
-
-      <div className="floating-controls">
-        <button onClick={() => setDarkMode(!darkMode)}>
-          {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
-        </button>
-        <button onClick={() => { setStartCity(""); setEndCity(""); setRoute([]); }}>
-          🔄 Reset
-        </button>
-      </div>
     </div>
   );
 };
