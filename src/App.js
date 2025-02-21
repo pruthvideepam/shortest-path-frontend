@@ -3,17 +3,17 @@ import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
 import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
-import "./App.css";
 
-// Custom marker icons
 const startIcon = new L.Icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/green-dot.png",
   iconSize: [32, 32],
+  iconAnchor: [16, 32],
 });
 
 const endIcon = new L.Icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
   iconSize: [32, 32],
+  iconAnchor: [16, 32],
 });
 
 const App = () => {
@@ -74,6 +74,7 @@ const App = () => {
       }
 
       const geoJson = response.data;
+
       console.log("GeoJSON Features:", geoJson.features);
 
       const coordinates = geoJson.features.flatMap((feature) => {
@@ -81,16 +82,20 @@ const App = () => {
           console.error("Invalid feature:", feature);
           return [];
         }
+
         switch (feature.geometry.type) {
           case "MultiLineString":
             return feature.geometry.coordinates.flatMap((line) =>
               line.map(([lon, lat]) => ({ lat, lon }))
             );
+
           case "LineString":
             return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
+
           case "Point":
             console.warn("Skipping unsupported Point geometry:", feature.geometry.coordinates);
             return [];
+
           default:
             console.error("Unsupported geometry type:", feature.geometry.type);
             return [];
@@ -98,6 +103,7 @@ const App = () => {
       });
 
       console.log("Extracted Coordinates:", coordinates);
+
       if (coordinates.length === 0) {
         console.error("No valid coordinates extracted.");
         alert("Could not retrieve a valid route. Try again!");
@@ -113,33 +119,62 @@ const App = () => {
     setLoading(false);
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      fetchRoute();
+    }
+  };
+
   return (
-    <div className={`app-container ${darkMode ? "dark" : "light"}`}>
-      <div className="controls">
+    <div
+      style={{
+        width: "100vw",
+        height: "100vh",
+        background: darkMode ? "#222" : "#fff",
+        color: darkMode ? "#fff" : "#000",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <div
+        style={{
+          position: "absolute",
+          top: "10px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "#fff",
+          padding: "10px 20px",
+          borderRadius: "20px",
+          boxShadow: "0 2px 5px rgba(0,0,0,0.3)",
+          zIndex: 1000,
+          display: "flex",
+          gap: "10px",
+          alignItems: "center",
+        }}
+      >
         <input
           type="text"
           placeholder="Start City"
           value={startCity}
           onChange={(e) => setStartCity(e.target.value)}
+          onKeyPress={handleKeyPress}
+          style={{ padding: "8px", borderRadius: "10px", border: "1px solid #ccc" }}
         />
         <input
           type="text"
           placeholder="Destination City"
           value={endCity}
           onChange={(e) => setEndCity(e.target.value)}
+          onKeyPress={handleKeyPress}
+          style={{ padding: "8px", borderRadius: "10px", border: "1px solid #ccc" }}
         />
-        <button onClick={fetchRoute} disabled={loading}>
+        <button onClick={fetchRoute} disabled={loading} style={{ padding: "8px", borderRadius: "10px" }}>
           {loading ? "Loading..." : "Get Route"}
         </button>
-        <button onClick={() => setDarkMode(!darkMode)}>
+        <button onClick={() => setDarkMode(!darkMode)} style={{ padding: "8px", borderRadius: "10px" }}>
           {darkMode ? "Light Mode" : "Dark Mode"}
         </button>
       </div>
-      <MapContainer
-        center={[12.9716, 77.5946]}
-        zoom={7}
-        className="map-container"
-      >
+      <MapContainer center={[12.9716, 77.5946]} zoom={7} style={{ width: "100%", height: "100%" }}>
         <TileLayer
           url={
             darkMode
@@ -149,8 +184,8 @@ const App = () => {
         />
         {route.length > 0 && (
           <>
-            <Marker position={[route[0].lat, route[0].lon]} icon={startIcon} />
-            <Marker position={[route[route.length - 1].lat, route[route.length - 1].lon]} icon={endIcon} />
+            {route[0] && <Marker position={[route[0].lat, route[0].lon]} icon={startIcon} />}
+            {route[route.length - 1] && <Marker position={[route[route.length - 1].lat, route[route.length - 1].lon]} icon={endIcon} />}
             <Polyline positions={route.map((point) => [point.lat, point.lon])} color="blue" />
           </>
         )}
