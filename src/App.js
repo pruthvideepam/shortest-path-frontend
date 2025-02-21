@@ -1,7 +1,20 @@
 import React, { useState } from "react";
 import { MapContainer, TileLayer, Marker, Polyline } from "react-leaflet";
+import L from "leaflet";
 import axios from "axios";
 import "leaflet/dist/leaflet.css";
+
+const startIcon = new L.Icon({
+  iconUrl: "https://maps.google.com/mapfiles/ms/icons/green-dot.png",
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+});
+
+const endIcon = new L.Icon({
+  iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+});
 
 const App = () => {
   const [startCity, setStartCity] = useState("");
@@ -18,6 +31,12 @@ const App = () => {
       if (response.data.length > 0) {
         const cityResult =
           response.data.find((item) => item.type === "city") || response.data[0];
+
+        if (!cityResult.lat || !cityResult.lon) {
+          console.error(`Invalid coordinates for ${city}:`, cityResult);
+          return null;
+        }
+
         return {
           lat: parseFloat(cityResult.lat),
           lon: parseFloat(cityResult.lon),
@@ -34,6 +53,7 @@ const App = () => {
     try {
       const startCoords = await getCoordinates(startCity);
       const endCoords = await getCoordinates(endCity);
+
       if (!startCoords || !endCoords) {
         alert("Invalid city names. Try again!");
         setLoading(false);
@@ -44,25 +64,52 @@ const App = () => {
         `https://shortest-path-backend-iyb8.onrender.com/api/route?lat1=${startCoords.lat}&lon1=${startCoords.lon}&lat2=${endCoords.lat}&lon2=${endCoords.lon}`
       );
 
-      if (!response.data || !response.data.features) {
-        alert("No valid route found!");
+      console.log("API Route Response:", response.data);
+
+      if (!response.data || !response.data.features || response.data.features.length === 0) {
+        console.error("Invalid or empty route data:", response.data);
+        alert("No valid route found. Try again!");
         setLoading(false);
         return;
       }
 
-      const coordinates = response.data.features.flatMap((feature) => {
-        if (!feature.geometry || !feature.geometry.coordinates) return [];
+      const geoJson = response.data;
+
+      console.log("GeoJSON Features:", geoJson.features);
+
+      const coordinates = geoJson.features.flatMap((feature) => {
+        if (!feature.geometry || !feature.geometry.coordinates) {
+          console.error("Invalid feature:", feature);
+          return [];
+        }
+
         switch (feature.geometry.type) {
           case "MultiLineString":
             return feature.geometry.coordinates.flatMap((line) =>
               line.map(([lon, lat]) => ({ lat, lon }))
             );
+
           case "LineString":
             return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
+
+          case "Point":
+            console.warn("Skipping unsupported Point geometry:", feature.geometry.coordinates);
+            return [];
+
           default:
+            console.error("Unsupported geometry type:", feature.geometry.type);
             return [];
         }
       });
+
+      console.log("Extracted Coordinates:", coordinates);
+
+      if (coordinates.length === 0) {
+        console.error("No valid coordinates extracted.");
+        alert("Could not retrieve a valid route. Try again!");
+        setLoading(false);
+        return;
+      }
 
       setRoute(coordinates);
     } catch (error) {
@@ -72,14 +119,36 @@ const App = () => {
     setLoading(false);
   };
 
+  const handleKeyPress = (e) => {
+    if (e.key === "Enter") {
+      fetchRoute();
+    }
+  };
+
   return (
-    <div style={{ width: "100vw", height: "100vh", background: darkMode ? "#222" : "#fff" }}>
-      <div style={{ padding: "10px", position: "absolute", zIndex: 1000, display: "flex", gap: "10px" }}>
+    <div
+      style={{
+        width: "100vw",
+        height: "100vh",
+        background: darkMode ? "#222" : "#fff",
+        color: darkMode ? "#fff" : "#000",
+      }}
+    >
+      <div
+        style={{
+          padding: "10px",
+          position: "absolute",
+          zIndex: 1000,
+          display: "flex",
+          gap: "10px",
+        }}
+      >
         <input
           type="text"
           placeholder="Start City"
           value={startCity}
           onChange={(e) => setStartCity(e.target.value)}
+          onKeyPress={handleKeyPress}
           style={{ padding: "5px" }}
         />
         <input
@@ -87,10 +156,15 @@ const App = () => {
           placeholder="Destination City"
           value={endCity}
           onChange={(e) => setEndCity(e.target.value)}
+          onKeyPress={handleKeyPress}
           style={{ padding: "5px" }}
         />
-        <button onClick={fetchRoute} disabled={loading}>{loading ? "Loading..." : "Get Route"}</button>
-        <button onClick={() => setDarkMode(!darkMode)}>{darkMode ? "Light Mode" : "Dark Mode"}</button>
+        <button onClick={fetchRoute} disabled={loading}>
+          {loading ? "Loading..." : "Get Route"}
+        </button>
+        <button onClick={() => setDarkMode(!darkMode)}>
+          {darkMode ? "Light Mode" : "Dark Mode"}
+        </button>
       </div>
       <MapContainer center={[12.9716, 77.5946]} zoom={7} style={{ width: "100%", height: "100%" }}>
         <TileLayer
@@ -102,8 +176,10 @@ const App = () => {
         />
         {route.length > 0 && (
           <>
-            <Marker position={[route[0].lat, route[0].lon]} />
-            <Marker position={[route[route.length - 1].lat, route[route.length - 1].lon]} />
+            {route[0] && <Marker position={[route[0].lat, route[0].lon]} icon={startIcon} />}
+            {route[route.length - 1] && (
+              <Marker position={[route[route.length - 1].lat, route[route.length - 1].lon]} icon={endIcon} />
+            )}
             <Polyline positions={route.map((point) => [point.lat, point.lon])} color="blue" />
           </>
         )}
