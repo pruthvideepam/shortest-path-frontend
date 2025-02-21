@@ -64,48 +64,29 @@ const App = () => {
         `https://shortest-path-backend-iyb8.onrender.com/api/route?lat1=${startCoords.lat}&lon1=${startCoords.lon}&lat2=${endCoords.lat}&lon2=${endCoords.lon}`
       );
 
-      console.log("API Route Response:", response.data);
-
       if (!response.data || !response.data.features || response.data.features.length === 0) {
-        console.error("Invalid or empty route data:", response.data);
         alert("No valid route found. Try again!");
         setLoading(false);
         return;
       }
 
       const geoJson = response.data;
-
-      console.log("GeoJSON Features:", geoJson.features);
-
       const coordinates = geoJson.features.flatMap((feature) => {
-        if (!feature.geometry || !feature.geometry.coordinates) {
-          console.error("Invalid feature:", feature);
-          return [];
-        }
+        if (!feature.geometry || !feature.geometry.coordinates) return [];
 
         switch (feature.geometry.type) {
           case "MultiLineString":
             return feature.geometry.coordinates.flatMap((line) =>
               line.map(([lon, lat]) => ({ lat, lon }))
             );
-
           case "LineString":
             return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
-
-          case "Point":
-            console.warn("Skipping unsupported Point geometry:", feature.geometry.coordinates);
-            return [];
-
           default:
-            console.error("Unsupported geometry type:", feature.geometry.type);
             return [];
         }
       });
 
-      console.log("Extracted Coordinates:", coordinates);
-
       if (coordinates.length === 0) {
-        console.error("No valid coordinates extracted.");
         alert("Could not retrieve a valid route. Try again!");
         setLoading(false);
         return;
@@ -113,60 +94,32 @@ const App = () => {
 
       setRoute(coordinates);
     } catch (error) {
-      console.error("Error fetching route:", error);
       alert("Failed to fetch route. Try again later!");
     }
     setLoading(false);
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === "Enter") {
-      fetchRoute();
-    }
-  };
-
   return (
-    <div
-      style={{
-        width: "100vw",
-        height: "100vh",
-        background: darkMode ? "#222" : "#fff",
-        color: darkMode ? "#fff" : "#000",
-      }}
-    >
-      <div
-        style={{
-          padding: "10px",
-          position: "absolute",
-          zIndex: 1000,
-          display: "flex",
-          gap: "10px",
-        }}
-      >
+    <div className={`app-container ${darkMode ? "dark-mode" : "light-mode"}`}>
+      <div className="search-container">
         <input
           type="text"
-          placeholder="Start City"
+          placeholder="Enter Start Location"
           value={startCity}
           onChange={(e) => setStartCity(e.target.value)}
-          onKeyPress={handleKeyPress}
-          style={{ padding: "5px" }}
         />
         <input
           type="text"
-          placeholder="Destination City"
+          placeholder="Enter Destination"
           value={endCity}
           onChange={(e) => setEndCity(e.target.value)}
-          onKeyPress={handleKeyPress}
-          style={{ padding: "5px" }}
         />
-        <button onClick={fetchRoute} disabled={loading}>
-          {loading ? "Loading..." : "Get Route"}
-        </button>
-        <button onClick={() => setDarkMode(!darkMode)}>
-          {darkMode ? "Light Mode" : "Dark Mode"}
+        <button onClick={fetchRoute} disabled={loading} className="route-btn">
+          {loading ? "Loading..." : "Find Route"}
         </button>
       </div>
-      <MapContainer center={[12.9716, 77.5946]} zoom={7} style={{ width: "100%", height: "100%" }}>
+
+      <MapContainer center={[12.9716, 77.5946]} zoom={7} className="map-container">
         <TileLayer
           url={
             darkMode
@@ -176,14 +129,21 @@ const App = () => {
         />
         {route.length > 0 && (
           <>
-            {route[0] && <Marker position={[route[0].lat, route[0].lon]} icon={startIcon} />}
-            {route[route.length - 1] && (
-              <Marker position={[route[route.length - 1].lat, route[route.length - 1].lon]} icon={endIcon} />
-            )}
+            <Marker position={[route[0].lat, route[0].lon]} icon={startIcon} />
+            <Marker position={[route[route.length - 1].lat, route[route.length - 1].lon]} icon={endIcon} />
             <Polyline positions={route.map((point) => [point.lat, point.lon])} color="blue" />
           </>
         )}
       </MapContainer>
+
+      <div className="floating-controls">
+        <button onClick={() => setDarkMode(!darkMode)}>
+          {darkMode ? "☀️ Light Mode" : "🌙 Dark Mode"}
+        </button>
+        <button onClick={() => { setStartCity(""); setEndCity(""); setRoute([]); }}>
+          🔄 Reset
+        </button>
+      </div>
     </div>
   );
 };
