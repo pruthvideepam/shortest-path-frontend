@@ -5,15 +5,15 @@ import axios from "axios";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
 
-// Custom markers
+// Custom marker icons
 const startIcon = new L.Icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/green-dot.png",
-  iconSize: [40, 40],
+  iconSize: [32, 32],
 });
 
 const endIcon = new L.Icon({
   iconUrl: "https://maps.google.com/mapfiles/ms/icons/red-dot.png",
-  iconSize: [40, 40],
+  iconSize: [32, 32],
 });
 
 const App = () => {
@@ -31,6 +31,12 @@ const App = () => {
       if (response.data.length > 0) {
         const cityResult =
           response.data.find((item) => item.type === "city") || response.data[0];
+
+        if (!cityResult.lat || !cityResult.lon) {
+          console.error(`Invalid coordinates for ${city}:`, cityResult);
+          return null;
+        }
+
         return {
           lat: parseFloat(cityResult.lat),
           lon: parseFloat(cityResult.lon),
@@ -58,9 +64,23 @@ const App = () => {
         `https://shortest-path-backend-iyb8.onrender.com/api/route?lat1=${startCoords.lat}&lon1=${startCoords.lon}&lat2=${endCoords.lat}&lon2=${endCoords.lon}`
       );
 
+      console.log("API Route Response:", response.data);
+
+      if (!response.data || !response.data.features || response.data.features.length === 0) {
+        console.error("Invalid or empty route data:", response.data);
+        alert("No valid route found. Try again!");
+        setLoading(false);
+        return;
+      }
+
       const geoJson = response.data;
+      console.log("GeoJSON Features:", geoJson.features);
+
       const coordinates = geoJson.features.flatMap((feature) => {
-        if (!feature.geometry || !feature.geometry.coordinates) return [];
+        if (!feature.geometry || !feature.geometry.coordinates) {
+          console.error("Invalid feature:", feature);
+          return [];
+        }
         switch (feature.geometry.type) {
           case "MultiLineString":
             return feature.geometry.coordinates.flatMap((line) =>
@@ -68,10 +88,22 @@ const App = () => {
             );
           case "LineString":
             return feature.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
+          case "Point":
+            console.warn("Skipping unsupported Point geometry:", feature.geometry.coordinates);
+            return [];
           default:
+            console.error("Unsupported geometry type:", feature.geometry.type);
             return [];
         }
       });
+
+      console.log("Extracted Coordinates:", coordinates);
+      if (coordinates.length === 0) {
+        console.error("No valid coordinates extracted.");
+        alert("Could not retrieve a valid route. Try again!");
+        setLoading(false);
+        return;
+      }
 
       setRoute(coordinates);
     } catch (error) {
@@ -83,27 +115,31 @@ const App = () => {
 
   return (
     <div className={`app-container ${darkMode ? "dark" : "light"}`}>
-      <div className="search-box">
+      <div className="controls">
         <input
           type="text"
-          placeholder="Start Location"
+          placeholder="Start City"
           value={startCity}
           onChange={(e) => setStartCity(e.target.value)}
         />
         <input
           type="text"
-          placeholder="Destination"
+          placeholder="Destination City"
           value={endCity}
           onChange={(e) => setEndCity(e.target.value)}
         />
-        <button onClick={fetchRoute} disabled={loading} className="search-btn">
+        <button onClick={fetchRoute} disabled={loading}>
           {loading ? "Loading..." : "Get Route"}
         </button>
-        <button onClick={() => setDarkMode(!darkMode)} className="mode-btn">
-          {darkMode ? "🌞 Light" : "🌙 Dark"}
+        <button onClick={() => setDarkMode(!darkMode)}>
+          {darkMode ? "Light Mode" : "Dark Mode"}
         </button>
       </div>
-      <MapContainer center={[12.9716, 77.5946]} zoom={7} className="map-container">
+      <MapContainer
+        center={[12.9716, 77.5946]}
+        zoom={7}
+        className="map-container"
+      >
         <TileLayer
           url={
             darkMode
